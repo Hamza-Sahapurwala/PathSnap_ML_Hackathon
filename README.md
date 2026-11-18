@@ -124,11 +124,13 @@ The system is decoupled into an API backend and a Streamlit UI, allowing deploym
 
 1. **Find Laptop 1's LAN IP address:**
    ```cmd
-   ipconfig | findstr /i "IPv4"
+   ipconfig
    ```
-   *Example output: `IPv4 Address. . . . . . . . . . . : 192.168.1.45`*
+   Use the `IPv4 Address` listed under **"Wireless LAN adapter Wi-Fi"**. Ignore addresses under `vEthernet (WSL ...)`,
+   VirtualBox/VMware or other virtual adapters (e.g. `172.x.x.x`, `192.168.56.1`): they are not reachable from Laptop 2.
 
-2. **Configure Windows Firewall (Allow inbound TCP port 8000):**
+2. **Configure Windows Firewall (Allow inbound TCP port 8000)** in an *Administrator* command prompt, and set the
+   Wi-Fi network profile to **Private** (Public profiles block incoming connections):
    ```cmd
    netsh advfirewall firewall add rule name="FastAPI 8000" dir=in action=allow protocol=TCP localport=8000
    ```
@@ -151,7 +153,13 @@ The system is decoupled into an API backend and a Streamlit UI, allowing deploym
    set API_URL=http://192.168.1.45:8000
    streamlit run ui/app.py
    ```
-3. Open `http://localhost:8501` in the browser. You can also dynamically update the API URL via the left sidebar input.
+3. Open `http://localhost:8501` in the browser. You can also update the API URL in the left sidebar; the trip list
+   reloads automatically (or press **Reload trips**).
+
+**If the laptops cannot connect:** on Laptop 2 open `http://<Laptop1-IP>:8000/health` in a browser.
+If it does not load, the problem is the network, not the code: re-check the Wi-Fi IP, the firewall rule and the
+Private profile. Campus Wi-Fi often blocks device-to-device traffic; connecting both laptops to one phone hotspot
+avoids that (look up the IP again afterwards).
 4. Select any student-test trip (e.g. `00000077`) to visualize the GPS points, predicted route, classifier-only route, and ground truth route on Folium with live metrics.
 
 ---
