@@ -32,14 +32,6 @@ def suggest(trial, name, smallest_fold):
             "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 20, log=True),
             "max_features": trial.suggest_float("max_features", 0.3, 1.0),
         }
-    if name == "HistGradientBoosting":
-        return {
-            "max_iter": trial.suggest_int("max_iter", 60, 240, step=30),
-            "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.3, log=True),
-            "max_leaf_nodes": trial.suggest_int("max_leaf_nodes", 7, 63),
-            "min_samples_leaf": trial.suggest_int("min_samples_leaf", 5, 50, log=True),
-            "l2_regularization": trial.suggest_float("l2_regularization", 1e-5, 10, log=True),
-        }
     if name == "MLP":
         return {
             "hidden_layer_sizes": (trial.suggest_int("hidden_units", 16, 96, step=16),),

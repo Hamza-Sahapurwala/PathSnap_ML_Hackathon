@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.base import clone
-from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, f1_score, log_loss, precision_score, recall_score
@@ -35,8 +35,6 @@ MODELS = {
     "KNN": ("Instance-based", KNeighborsClassifier(n_neighbors=7, weights="distance", algorithm="kd_tree", n_jobs=6), True),
     "RandomForest": ("Bagging ensemble", RandomForestClassifier(
         n_estimators=100, min_samples_leaf=3, max_depth=16, max_samples=0.4, random_state=SEED, n_jobs=6), False),
-    "HistGradientBoosting": ("Gradient boosting", HistGradientBoostingClassifier(
-        max_iter=100, early_stopping=False, random_state=SEED), False),
     "MLP": ("Neural network", MLPClassifier(
         hidden_layer_sizes=(32,), max_iter=100, random_state=SEED), True),
 }

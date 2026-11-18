@@ -51,6 +51,11 @@ probabilities, including preprocessing. Fit time and per-fold validation F1 are 
 comparison records training-fold F1 for all models except KNN, whose
 training predictions would include each candidate as its own neighbor.
 
+## Models
+
+The comparison includes five models: Logistic Regression, Gaussian Naive Bayes,
+KNN, Random Forest, and a shallow MLP.
+
 ## Optuna search
 
 The comparison selects the highest sum of train CV macro F1 and student-test
@@ -59,9 +64,8 @@ TPE maximises mean GroupKFold(5) validation macro F1 using only training trips.
 The selected algorithm's search ranges are defined in `src/tune_bayes.py`.
 The linear model searches regularisation strength, Naive Bayes searches
 variance smoothing, and KNN searches locality, weighting, and L1/L2 distance.
-The forest searches diversity and tree capacity. Boosting searches leaf
-capacity, regularisation, and the learning-rate/iteration tradeoff. The MLP
-searches hidden width, weight regularisation, and the initial learning rate.
+The forest searches diversity and tree capacity. The MLP searches hidden width,
+weight regularisation, and the initial learning rate.
 The 40-trial default and seed 42 apply to a serial search. Compute cost
 combines baseline CV or TPE search time with the corresponding full-data refit.
 
