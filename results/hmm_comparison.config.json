@@ -1,0 +1,45 @@
+{
+  "partition": "student_test",
+  "model": "F:\\Sem 5\\ML\\Hackathon\\PathSnap_ML_Hackathon\\artifacts\\final_model.joblib",
+  "config_file": "artifacts\\hmm_config.json",
+  "configs": {
+    "hmm_untuned": {
+      "prob_eps": 1e-06,
+      "emission_power": 1.0,
+      "distance_weight": 0.0,
+      "gps_sigma_m": 20.0,
+      "beta_m": 10.0,
+      "beta_gap_m_per_s": 2.0,
+      "log_disconnect_penalty": -15.0,
+      "uturn_log_penalty": 0.0,
+      "backward_log_penalty": 0.0,
+      "normalize_transitions": false,
+      "max_speed_mps": 60.0,
+      "route_factor": 2.0,
+      "search_slack_m": 100.0,
+      "max_search_m": 2000.0,
+      "max_hops": 60,
+      "max_settled": 4000,
+      "gap_reset_s": 60.0
+    },
+    "hmm_tuned": {
+      "prob_eps": 1e-06,
+      "emission_power": 0.5018633280391896,
+      "distance_weight": 0.8354571846059279,
+      "gps_sigma_m": 12.184938177615757,
+      "beta_m": 2.9885763145621604,
+      "beta_gap_m_per_s": 9.570281617752146,
+      "log_disconnect_penalty": -38.02421553283038,
+      "uturn_log_penalty": -4.3116435697476,
+      "backward_log_penalty": -0.2364177543897156,
+      "normalize_transitions": false,
+      "max_speed_mps": 60.0,
+      "route_factor": 2.0,
+      "search_slack_m": 100.0,
+      "max_search_m": 2000.0,
+      "max_hops": 60,
+      "max_settled": 4000,
+      "gap_reset_s": 60.0
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "config": {
+    "prob_eps": 1e-06,
+    "emission_power": 0.5018633280391896,
+    "distance_weight": 0.8354571846059279,
+    "gps_sigma_m": 12.184938177615757,
+    "beta_m": 2.9885763145621604,
+    "beta_gap_m_per_s": 9.570281617752146,
+    "log_disconnect_penalty": -38.02421553283038,
+    "uturn_log_penalty": -4.3116435697476,
+    "backward_log_penalty": -0.2364177543897156,
+    "normalize_transitions": false,
+    "max_speed_mps": 60.0,
+    "route_factor": 2.0,
+    "search_slack_m": 100.0,
+    "max_search_m": 2000.0,
+    "max_hops": 60,
+    "max_settled": 4000,
+    "gap_reset_s": 60.0
+  },
+  "meta": {
+    "objective": "pooled observation-level Top-1 accuracy, training trips, out-of-fold probabilities",
+    "best_trial": 51,
+    "best_value": 0.9294608752591946,
+    "baseline_value": 0.9117155953290407,
+    "n_trials": 60,
+    "sampler": "optuna TPE",
+    "seed": 42,
+    "n_train_trips": 80,
+    "excluded_from_objective": [
+      "00000033",
+      "00000054"
+    ],
+    "classifier": "RandomForest (untuned replica by Member C, NOT B's artifact)",
+    "folds": "GroupKFold(5) by trip",
+    "created_utc": "2026-11-18T09:50:34+00:00"
+  }
+}
