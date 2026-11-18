@@ -74,11 +74,17 @@ def tune(args):
         trial.set_user_attr("fold_macro_f1", scores["validation_macro_f1"].tolist())
         return scores["validation_macro_f1"].mean()
 
+    trials_csv = results / "optuna_trials.csv"
+
+    def record_trials(study, _trial):
+        temporary = trials_csv.with_suffix(".csv.tmp")
+        study.trials_dataframe().to_csv(temporary, index=False)
+        temporary.replace(trials_csv)
+
     study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(seed=SEED))
     started = perf_counter()
-    study.optimize(objective, n_trials=args.trials)
+    study.optimize(objective, n_trials=args.trials, callbacks=[record_trials])
     search_time = perf_counter() - started
-    study.trials_dataframe().to_csv(results / "optuna_trials.csv", index=False)
     save_plot(optuna.visualization.matplotlib.plot_optimization_history(study),
               results / "optuna_history.png")
 
