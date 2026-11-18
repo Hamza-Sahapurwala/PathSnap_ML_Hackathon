@@ -17,7 +17,7 @@ from src.preprocess import load_trip_data, CandidateArcGenerator, align_gps_to_r
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = BASE_DIR / "data" if (BASE_DIR / "data").exists() else BASE_DIR / "Student folder"
 RESULTS_DIR = BASE_DIR / "results"
 ARTIFACTS_DIR = BASE_DIR / "artifacts"
 
@@ -124,12 +124,15 @@ def extract_features_for_trip(
     labels = np.zeros((N, K), dtype=np.int32)
     miss_rate = 0.0
     align_metrics = {"mean_dist": 0.0, "median_dist": 0.0, "max_dist": 0.0}
+    aligned_arcs = None
 
     if route is not None and len(route) > 0:
         aligned_arcs, align_metrics = align_gps_to_route_dp(tx, ty, nx, ny, arcs, route)
         labels = (cand_arcs == aligned_arcs[:, None]).astype(np.int32)
         in_cand = np.any(cand_arcs == aligned_arcs[:, None], axis=1)
         miss_rate = float(1.0 - np.mean(in_cand))
+
+    reference = aligned_arcs if (route is not None and len(route) > 0) else np.full(N, -1, dtype=np.int64)
 
     # Reshape all features to 1D table (N * K rows)
     point_idx = np.repeat(np.arange(N, dtype=np.int32), K)
@@ -140,6 +143,9 @@ def extract_features_for_trip(
         "point_idx": point_idx,
         "arc_id": cand_arcs.reshape(-1),
         "label": labels.reshape(-1),
+        "reference_arc_id": np.repeat(reference, K).astype(np.int64),
+        "from_node_id": u.reshape(-1).astype(np.int64),
+        "to_node_id": v.reshape(-1).astype(np.int64),
         "distance": distances.reshape(-1).astype(np.float32),
         "proj_frac": proj_fracs.reshape(-1).astype(np.float32),
         "arc_length": arc_length.reshape(-1).astype(np.float32),

@@ -16,7 +16,7 @@ from pyproj import Transformer
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = BASE_DIR / "data" if (BASE_DIR / "data").exists() else BASE_DIR / "Student folder"
 RESULTS_DIR = BASE_DIR / "results"
 ARTIFACTS_DIR = BASE_DIR / "artifacts"
 

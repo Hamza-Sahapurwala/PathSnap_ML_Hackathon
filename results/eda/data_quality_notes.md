@@ -45,3 +45,16 @@
 - **Route Continuity:** The reference `.route` files form nearly continuous directed paths (**99.93% average continuity**).
 - **Trajectory vs Route Cardinality:** A trajectory has on average ~2,600 GPS points while its reference route has ~390 arcs, reflecting vehicle dwell time (multiple GPS observations falling along a single road segment).
 - **Ground-Truth Labeling:** A monotonic dynamic programming alignment correctly matches each GPS point to its reference arc along the route sequence, resolving self-intersections and turns.
+
+---
+
+## 6. Investigation of Candidate Misses (Trips 00000033 & 00000054)
+- **Concentration of Misses:** Trips `00000033` and `00000054` account for approximately **88% of all candidate misses** in the training partition.
+- **Physical Cause:** In both trips, the mean GPS distance to the reference route is abnormally large (**81 m** for trip 33, and **132 m** for trip 54), indicating severe GPS offset, drift, or ground-truth recording discrepancy rather than a candidate-generation bug. Outside these two trips, top-10 candidate recall exceeds 99%.
+
+---
+
+## 7. Bidirectional Road Segments & Heading Disambiguation
+- **Candidate Symmetry:** For **73–76% of GPS points**, the rank-0 and rank-1 candidates represent an arc and its reverse counterpart $(u \to v \text{ and } v \to u)$ at identical perpendicular distances.
+- **Modeling Recommendation:** The spatial rank ordering between rank-0 and rank-1 is arbitrary. Downstream classifiers must rely primarily on `angle_diff` and kinematic directional alignment rather than `cand_rank` or `dist_diff_best` alone to disambiguate the true direction of travel.
+
