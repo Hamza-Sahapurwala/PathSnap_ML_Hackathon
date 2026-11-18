@@ -1,41 +1,39 @@
+# Python cache & build
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
 # Virtual environments
+.venv/
 venv/
 env/
 ENV/
-.venv/
 
-# Jupyter Notebook checkpoints
+# Jupyter & IDE
 .ipynb_checkpoints/
-
-# IDE / Editor folders
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS specific
+# OS files
 .DS_Store
 Thumbs.db
+
+# Testing cache
+.pytest_cache/
+
+# Large dataset archives & raw data folders
+data/
+Student folder/
+*.zip
+*.parquet
+
+# Keep model & decoder artifacts tracked
+!artifacts/
+!artifacts/**

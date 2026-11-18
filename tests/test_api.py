@@ -1,58 +1,134 @@
+"""
+tests/test_api.py  –  Integration tests for the PathSnap FastAPI service.
+
+Uses FastAPI TestClient (no live server needed).
+"""
+from __future__ import annotations
+
 import os
-import json
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
-from api.main import app
+
+from api.main import app, EVAL_DATA_DIR
 
 client = TestClient(app)
 
-def test_health():
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _trip_ids() -> list[str]:
+    resp = client.get("/trips")
+    assert resp.status_code == 200
+    return resp.json()["trips"]
+
+
+# ---------------------------------------------------------------------------
+# 1. /health
+# ---------------------------------------------------------------------------
+
+def test_health_status():
     resp = client.get("/health")
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
-    assert "pipeline" in data
+    assert data["pipeline"] == "real"
 
-def test_trips():
+
+# ---------------------------------------------------------------------------
+# 2. /trips
+# ---------------------------------------------------------------------------
+
+def test_trips_returns_200():
     resp = client.get("/trips")
     assert resp.status_code == 200
-    data = resp.json()
-    trips = data.get("trips", [])
-    # The repo contains 11 student trips; the API should return exactly 10
-    assert isinstance(trips, list)
-    assert len(trips) == 10
-    # ensure all ids are strings and correspond to directories
-    for tid in trips:
-        assert isinstance(tid, str)
-        path = os.path.join(os.getenv("EVAL_DATA_DIR", "./data/student_test"), tid)
-        assert os.path.isdir(path)
 
-@pytest.mark.parametrize("trip_id", [] )  # placeholder, will be populated dynamically
-def test_predict_success(trip_id):
+
+def test_trips_returns_exactly_10():
+    trips = _trip_ids()
+    assert len(trips) == 10, f"Expected 10 trips, got {len(trips)}: {trips}"
+
+
+def test_trips_are_strings():
+    for tid in _trip_ids():
+        assert isinstance(tid, str)
+
+
+def test_trips_correspond_to_real_dirs():
+    for tid in _trip_ids():
+        d = EVAL_DATA_DIR / tid
+        assert d.is_dir(), f"Trip directory missing: {d}"
+
+
+# ---------------------------------------------------------------------------
+# 3. /predict – parametrised over all 10 trips
+# ---------------------------------------------------------------------------
+
+TRIP_IDS = _trip_ids()
+EXPECTED_KEYS = {"trip_id", "gps", "predicted_route", "classifier_route",
+                 "reference_route", "metrics", "latency_ms"}
+METRIC_KEYS   = {"top1_accuracy", "macro_f1", "route_continuity", "seq_f1"}
+
+
+@pytest.mark.parametrize("trip_id", TRIP_IDS)
+def test_predict_200(trip_id):
+    resp = client.post("/predict", json={"trip_id": trip_id})
+    assert resp.status_code == 200, f"trip {trip_id}: {resp.text}"
+
+
+@pytest.mark.parametrize("trip_id", TRIP_IDS)
+def test_predict_response_keys(trip_id):
     resp = client.post("/predict", json={"trip_id": trip_id})
     assert resp.status_code == 200
     data = resp.json()
-    expected_keys = {"trip_id", "gps", "predicted_route", "classifier_route", "reference_route", "metrics", "latency_ms"}
-    assert expected_keys.issubset(data.keys())
-    assert data["trip_id"] == trip_id
-    # basic sanity checks on returned structures
-    assert isinstance(data["predicted_route"], list)
-    assert isinstance(data["classifier_route"], list)
-    assert isinstance(data["metrics"], dict)
-    assert isinstance(data["latency_ms"], int)
+    assert EXPECTED_KEYS.issubset(data.keys()), f"Missing keys: {EXPECTED_KEYS - data.keys()}"
 
-def test_predict_unknown():
-    resp = client.post("/predict", json={"trip_id": "nonexistent"})
+
+@pytest.mark.parametrize("trip_id", TRIP_IDS)
+def test_predict_metrics_in_range(trip_id):
+    resp = client.post("/predict", json={"trip_id": trip_id})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "metrics" in data
+    for method in ("classifier", "hmm"):
+        assert method in data["metrics"], f"Missing metrics.{method}"
+        m = data["metrics"][method]
+        for k in METRIC_KEYS:
+            assert k in m, f"metrics.{method} missing key {k!r}"
+            v = m[k]
+            assert isinstance(v, (int, float)), f"metrics.{method}.{k} is not numeric"
+            assert 0.0 <= v <= 1.0, f"metrics.{method}.{k} = {v} outside [0, 1]"
+
+
+@pytest.mark.parametrize("trip_id", TRIP_IDS)
+def test_predict_trip_id_echoed(trip_id):
+    resp = client.post("/predict", json={"trip_id": trip_id})
+    assert resp.status_code == 200
+    assert resp.json()["trip_id"] == trip_id
+
+
+@pytest.mark.parametrize("trip_id", TRIP_IDS)
+def test_predict_latency_ms_is_positive_int(trip_id):
+    resp = client.post("/predict", json={"trip_id": trip_id})
+    assert resp.status_code == 200
+    ms = resp.json()["latency_ms"]
+    assert isinstance(ms, int) and ms >= 0
+
+
+# ---------------------------------------------------------------------------
+# 4. Error cases
+# ---------------------------------------------------------------------------
+
+def test_predict_unknown_trip_returns_404():
+    resp = client.post("/predict", json={"trip_id": "definitely_nonexistent_trip_xyz"})
     assert resp.status_code == 404
 
-def test_predict_path_traversal():
-    resp = client.post("/predict", json={"trip_id": "../secret"})
-    # should be rejected as bad request or not found
-    assert resp.status_code >= 400 and resp.status_code < 500
 
-# Dynamically generate the param list for test_predict_success after import
-trips_response = client.get("/trips")
-if trips_response.status_code == 200:
-    trip_ids = trips_response.json().get("trips", [])
-    # replace the empty param list with actual ids
-    test_predict_success.parametrize = pytest.mark.parametrize("trip_id", trip_ids)
+def test_predict_path_traversal_rejected():
+    for bad in ("../secret", "../../etc/passwd", "..", "a/b", "a\\b"):
+        resp = client.post("/predict", json={"trip_id": bad})
+        assert resp.status_code in (400, 404), (
+            f"Expected 4xx for trip_id={bad!r}, got {resp.status_code}"
+        )
