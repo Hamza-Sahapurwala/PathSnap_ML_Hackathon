@@ -69,7 +69,7 @@ def tune(args):
 
     def objective(trial):
         params = suggest(trial, name, smallest_fold)
-        scores = cv_scores(pipeline(name, params), train, args.features, folds)
+        scores = cv_scores(pipeline(name, params), train, args.features, folds, score_train=False)
         trial.set_user_attr("model_params", params)
         trial.set_user_attr("fold_macro_f1", scores["validation_macro_f1"].tolist())
         return scores["validation_macro_f1"].mean()
@@ -101,7 +101,7 @@ def tune(args):
 
     untuned = pipeline(name)
     started = perf_counter()
-    untuned_scores = cv_scores(untuned, train, args.features, folds)["validation_macro_f1"]
+    untuned_scores = cv_scores(untuned, train, args.features, folds, score_train=False)["validation_macro_f1"]
     cv_time = perf_counter() - started
     tuned = pipeline(name, best_params)
     rows = []
@@ -129,5 +129,5 @@ if __name__ == "__main__":
     args = cli.parse_args()
     if args.trials < 40:
         cli.error("--trials must be at least 40")
-    with threadpool_limits(limits=2):
+    with threadpool_limits(limits=6):
         tune(args)

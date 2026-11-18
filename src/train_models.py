@@ -32,9 +32,9 @@ METADATA = set(POINT + IDS + ["label", "partition"])
 MODELS = {
     "LogisticRegression": ("Linear", LogisticRegression(max_iter=1000, random_state=SEED), True),
     "GaussianNB": ("Probabilistic", GaussianNB(), False),
-    "KNN": ("Instance-based", KNeighborsClassifier(n_neighbors=7, weights="distance"), True),
+    "KNN": ("Instance-based", KNeighborsClassifier(n_neighbors=7, weights="distance", algorithm="kd_tree", n_jobs=6), True),
     "RandomForest": ("Bagging ensemble", RandomForestClassifier(
-        n_estimators=100, min_samples_leaf=3, random_state=SEED, n_jobs=2), False),
+        n_estimators=100, min_samples_leaf=3, max_depth=16, max_samples=0.4, random_state=SEED, n_jobs=6), False),
     "HistGradientBoosting": ("Gradient boosting", HistGradientBoostingClassifier(
         max_iter=100, early_stopping=False, random_state=SEED), False),
     "MLP": ("Neural network", MLPClassifier(
@@ -54,7 +54,11 @@ def parser(description):
 def read_candidates(path, partition, features):
     if len(set(features)) != len(features) or METADATA.intersection(features):
         raise ValueError("Use unique inference-time features and exclude metadata and labels.")
-    frame = pd.read_csv(path, dtype={"trip_id": str})
+    if path.suffix.lower() == ".parquet":
+        frame = pd.read_parquet(path)
+        frame["trip_id"] = frame["trip_id"].astype(str)
+    else:
+        frame = pd.read_csv(path, dtype={"trip_id": str})
     if frame.empty or frame[POINT + IDS].isna().any().any():
         raise ValueError(f"{path} needs candidates with complete point and arc metadata.")
     permitted = {p.name for p in (ROOT / "Student folder" / partition).iterdir() if p.is_dir()}
@@ -69,7 +73,7 @@ def read_candidates(path, partition, features):
         raise ValueError("Duplicate candidate arc for a GPS point.")
     if frame.groupby(POINT)["reference_arc_id"].nunique().gt(1).any():
         raise ValueError("Each GPS point needs exactly one aligned reference arc ID.")
-    frame[features] = frame[features].apply(pd.to_numeric, errors="raise")
+    frame[features] = frame[features].apply(pd.to_numeric, errors="raise").astype("float32")
     if np.isinf(frame[features]).any().any():
         raise ValueError("Features may contain NaN but may not contain infinities.")
     frame["label"] = frame["arc_id"].eq(frame["reference_arc_id"]).astype(int)
@@ -95,18 +99,25 @@ def grouped_folds(train):
     return folds
 
 
-def cv_scores(model, train, features, folds):
+def cv_scores(model, train, features, folds, *, score_train=True):
     rows = []
+    inputs = train[features]
+    labels = train["label"]
     for index, (fit, valid) in enumerate(folds, start=1):
-        fitted = clone(model).fit(train[features].iloc[fit], train["label"].iloc[fit])
-        rows.append({
+        fitted = clone(model).fit(inputs.iloc[fit], labels.iloc[fit])
+        row = {
             "fold": index,
-            "train_macro_f1": f1_score(train["label"].iloc[fit], fitted.predict(train[features].iloc[fit]),
-                                       average="macro", zero_division=0),
-            "validation_macro_f1": f1_score(train["label"].iloc[valid],
-                                            fitted.predict(train[features].iloc[valid]),
-                                            average="macro", zero_division=0),
-        })
+            "validation_macro_f1": f1_score(
+                labels.iloc[valid], fitted.predict(inputs.iloc[valid]),
+                average="macro", zero_division=0,
+            ),
+        }
+        if score_train:
+            row["train_macro_f1"] = f1_score(
+                labels.iloc[fit], fitted.predict(inputs.iloc[fit]),
+                average="macro", zero_division=0,
+            )
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -173,9 +184,10 @@ def compare(args):
     results, artifacts = output_dirs(args.output)
     rows = []
     for name, (family, _, _) in MODELS.items():
+        print(f"Comparing {name}", flush=True)
         model = pipeline(name)
         started = perf_counter()
-        scores = cv_scores(model, train, args.features, folds)
+        scores = cv_scores(model, train, args.features, folds, score_train=name != "KNN")
         cv_time = perf_counter() - started
         metrics, matrix = fit_and_evaluate(model, train, student, args.features)
         rows.append({
@@ -231,5 +243,5 @@ def compare(args):
 
 
 if __name__ == "__main__":
-    with threadpool_limits(limits=2):
+    with threadpool_limits(limits=6):
         compare(parser(__doc__).parse_args())

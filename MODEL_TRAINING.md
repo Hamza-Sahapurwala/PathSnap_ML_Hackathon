@@ -12,6 +12,19 @@ Replace the example feature names with Member A's inference-time columns. Run bo
 commands with the same inputs and feature order. Include all 80 training trips
 and all ten student-testing trips in the report experiments.
 
+## Run against the team’s committed feature tables
+
+The team’s feature export on main at commit `7c08aa4` provides
+`results/features_train.parquet` and `results/features_student.parquet`.
+Check out those two files from main or pass absolute paths to copies of them.
+They use the same candidate schema as the CSV interface and include rows for
+points whose aligned arc is missing from the candidate set.
+
+```bash
+python src/train_models.py --train results/features_train.parquet --student-test results/features_student.parquet --features distance proj_frac arc_length arc_bearing gps_heading angle_diff speed dt cand_rank dist_diff_best from_node_degree to_node_degree connects_to_prev_top rolling_mean_dist
+python src/tune_bayes.py --train results/features_train.parquet --student-test results/features_student.parquet --features distance proj_frac arc_length arc_bearing gps_heading angle_diff speed dt cand_rank dist_diff_best from_node_degree to_node_degree connects_to_prev_top rolling_mean_dist
+```
+
 ## Candidate CSV contract
 
 Each row is a candidate arc for one observed GPS point. Both CSVs need
@@ -34,8 +47,9 @@ probabilities resolve to the lowest arc ID. Continuity measures adjacent
 observation pairs within each trip whose predicted arcs repeat or whose
 directed endpoints meet. An empty denominator produces a blank continuity
 value. Inference time is wall-clock seconds for all student-test candidate
-probabilities, including preprocessing. Fit time and per-fold training and
-validation F1 are also recorded.
+probabilities, including preprocessing. Fit time and per-fold validation F1 are also recorded. The baseline
+comparison records training-fold F1 for all models except KNN, whose
+training predictions would include each candidate as its own neighbor.
 
 ## Optuna search
 
