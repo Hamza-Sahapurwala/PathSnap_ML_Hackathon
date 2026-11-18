@@ -1,0 +1,3 @@
+Partition,Trips Count,Total GPS Observations,Mean GPS Points/Trip,Min GPS Points,Max GPS Points,Mean Road Nodes,Mean Road Arcs,Mean Route Length,Sampling 1s Pct Mean,Max Time Gap Observed (s),Total Speed Outliers (>35 m/s),Total Speed Outliers (>50 m/s),Total Isolated Nodes,Route Continuity Pct Mean,Trips with Disconnected Route
+train,80,208417,2605.2,361,19313,24168.6,48461.3,391.7,93.84,153064.0,8337,1530,0,99.93,10
+student_test,10,19160,1916.0,262,3958,9068.9,18504.1,347.7,98.2,210.0,379,8,0,99.97,1
