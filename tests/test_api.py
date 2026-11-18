@@ -117,6 +117,16 @@ def test_predict_latency_ms_is_positive_int(trip_id):
     assert isinstance(ms, int) and ms >= 0
 
 
+@pytest.mark.parametrize("trip_id", TRIP_IDS)
+def test_predict_accuracy_is_measured_against_the_real_reference(trip_id):
+    """Guards against comparing predictions with an all -1 reference (Top-1 would be 0.0)."""
+    data = client.post("/predict", json={"trip_id": trip_id}).json()
+    hmm, clf = data["metrics"]["hmm"], data["metrics"]["classifier"]
+    assert hmm["top1_accuracy"] > 0.5, f"trip {trip_id}: HMM Top-1 {hmm['top1_accuracy']}"
+    assert clf["top1_accuracy"] > 0.3, f"trip {trip_id}: classifier Top-1 {clf['top1_accuracy']}"
+    assert data["predicted_route"] and data["reference_route"]
+
+
 # ---------------------------------------------------------------------------
 # 4. Error cases
 # ---------------------------------------------------------------------------

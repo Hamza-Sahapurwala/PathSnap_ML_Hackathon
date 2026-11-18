@@ -22,8 +22,10 @@ from pydantic import BaseModel
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-EVAL_DATA_DIR = Path(os.environ.get("EVAL_DATA_DIR", "./data/student_test"))
-MODEL_DIR     = Path(os.environ.get("MODEL_DIR",     "./artifacts"))
+# Defaults are anchored to the repository root so the API works from any working directory.
+_REPO_ROOT    = Path(__file__).resolve().parent.parent
+EVAL_DATA_DIR = Path(os.environ.get("EVAL_DATA_DIR", str(_REPO_ROOT / "data" / "student_test")))
+MODEL_DIR     = Path(os.environ.get("MODEL_DIR",     str(_REPO_ROOT / "artifacts")))
 
 # ---------------------------------------------------------------------------
 # Startup: import real pipeline and trigger artifact loading.
@@ -87,14 +89,11 @@ def _real_metrics(
     reference: np.ndarray,
 ) -> Dict[str, float]:
     """Compute point + continuity + sequence metrics using existing src/ functions."""
-    from src.hmm import fill_route, HMMConfig
+    from src.hmm import fill_route, route_from_arcs, HMMConfig
     from src.hmm_experiments import point_metrics, continuity_metrics, sequence_metrics
 
     judge = HMMConfig()
-    filled, _ = fill_route(
-        [a for a in arc_ids.tolist() if a >= 0],
-        graph,
-    )
+    filled, _ = fill_route(route_from_arcs(arc_ids), graph)
     pm  = point_metrics(arc_ids, df_features)
     cm  = continuity_metrics(arc_ids, df_features, trip_data, graph, judge)
     sm  = sequence_metrics(filled, reference.tolist())
@@ -201,18 +200,30 @@ def predict(req: PredictRequest):
     hmm_config = _get_artifacts()[1]
 
     # --- Metrics for classifier and HMM ------------------------------------
-    classifier_metrics = _real_metrics(
-        classifier_arcs, df_features, trip_data, graph, hmm_config, reference
-    )
-    hmm_metrics = _real_metrics(
-        hmm_arcs, df_features, trip_data, graph, hmm_config, reference
-    )
+    # The feature frame was built without the route, so its reference_arc_id is -1 everywhere.
+    # Align the reference route to the GPS points (same alignment as the training labels) so
+    # point-level metrics compare against the real reference. Prediction has already finished.
+    from src.hmm import fill_route, route_from_arcs
+    from src.preprocess import align_gps_to_route_dp
+    if len(reference):
+        aligned, _ = align_gps_to_route_dp(trip_data["track_x"], trip_data["track_y"],
+                                           trip_data["nodes_x"], trip_data["nodes_y"],
+                                           trip_data["arcs"], reference)
+        df_features["reference_arc_id"] = aligned[df_features["point_idx"].to_numpy()]
+        classifier_metrics = _real_metrics(
+            classifier_arcs, df_features, trip_data, graph, hmm_config, reference
+        )
+        hmm_metrics = _real_metrics(
+            hmm_arcs, df_features, trip_data, graph, hmm_config, reference
+        )
+    else:
+        classifier_metrics = hmm_metrics = None  # no reference available for this trip
 
     latency_ms = int((time.time() - t_start) * 1000)
 
-    # --- Polylines ----------------------------------------------------------
-    predicted_route   = _arc_ids_to_polyline(hmm_arcs.tolist(),        trip_data)
-    classifier_route  = _arc_ids_to_polyline(classifier_arcs.tolist(), trip_data)
+    # --- Polylines (full driven route: per-point arcs plus the connecting arcs between them)
+    predicted_route   = _arc_ids_to_polyline(fill_route(route_from_arcs(hmm_arcs), graph)[0], trip_data)
+    classifier_route  = _arc_ids_to_polyline(fill_route(route_from_arcs(classifier_arcs), graph)[0], trip_data)
 
     # reference_route: convert arc ids from .route to lat/lon
     reference_route = _arc_ids_to_polyline(reference.tolist(), trip_data) if len(reference) else []
@@ -222,12 +233,17 @@ def predict(req: PredictRequest):
     gps = [{"lat": float(row[1]), "lon": float(row[0])} for row in track_raw]
 
     # --- Log ----------------------------------------------------------------
-    print(
-        f"[predict] trip_id={tid} latency_ms={latency_ms} "
-        f"hmm_top1={hmm_metrics['top1_accuracy']:.3f} "
-        f"hmm_f1={hmm_metrics['macro_f1']:.3f} "
-        f"hmm_cont={hmm_metrics['route_continuity']:.3f}"
-    )
+    if hmm_metrics is not None:
+        print(
+            f"[predict] trip_id={tid} latency_ms={latency_ms} "
+            f"clf_top1={classifier_metrics['top1_accuracy']:.3f} "
+            f"hmm_top1={hmm_metrics['top1_accuracy']:.3f} "
+            f"hmm_f1={hmm_metrics['macro_f1']:.3f} "
+            f"hmm_cont={hmm_metrics['route_continuity']:.3f}",
+            flush=True,
+        )
+    else:
+        print(f"[predict] trip_id={tid} latency_ms={latency_ms} (no reference route)", flush=True)
 
     return {
         "trip_id":          tid,
